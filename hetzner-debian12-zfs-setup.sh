@@ -1,17 +1,7 @@
 #!/bin/bash
 
-: <<'end_header_info'
-(c) Andrey Prokopenko job@terem.fr
-fully automatic script to install Debian 11 with ZFS root on Hetzner VPS
-WARNING: all data on the disk will be destroyed
-How to use: add SSH key to the rescue console, set it OS to linux64, then press "mount rescue and power cycle" button
-Next, connect via SSH to console, and run the script
-Answer script questions about desired hostname, ZFS ARC cache size et cetera
-To cope with network failures its higly recommended to run the script inside screen console
-screen -dmS zfs
-screen -r zfs
-To detach from screen console, hit Ctrl-d then a
-end_header_info
+# Modified by GytisT @ github.com
+# Original (c) Andrey Prokopenko job@terem.fr
 
 set -o errexit
 set -o pipefail
@@ -40,12 +30,12 @@ v_suitable_disks=()
 c_deb_packages_repo=https://deb.debian.org/debian
 c_deb_security_repo=https://deb.debian.org/debian-security
 
-c_default_zfs_arc_max_mb=250
+c_default_zfs_arc_max_mb=5000
 c_default_bpool_tweaks="-o ashift=12 -O compression=lz4"
 c_default_rpool_tweaks="-o ashift=12 -O acltype=posixacl -O compression=zstd-9 -O dnodesize=auto -O relatime=on -O xattr=sa -O normalization=formD"
 c_default_hostname=terem
 c_zfs_mount_dir=/mnt
-c_log_dir=$(dirname "$(mktemp)")/zfs-hetzner-vm
+c_log_dir=$(dirname "$(mktemp)")/zfs-hetzner-debian
 c_install_log=$c_log_dir/install.log
 c_lsb_release_log=$c_log_dir/lsb_release.log
 c_disks_log=$c_log_dir/disks.log
@@ -213,7 +203,7 @@ LOG
   if [[ ${#v_suitable_disks[@]} -eq 0 ]]; then
     local dialog_message='No suitable disks have been found!
 
-If you think this is a bug, please open an issue on https://github.com/terem42/zfs-hetzner-vm/issues, and attach the file `'"$c_disks_log"'`.
+If you think this is a bug, please open an issue on https://github.com/Amunicy/zfs-hetzner-debian/issues, and attach the file `'"$c_disks_log"'`.
 '
     dialog --msgbox "$dialog_message" 30 100
 
@@ -342,7 +332,7 @@ function ask_root_password {
   local password_repeat=-
 
   while [[ "$v_root_password" != "$password_repeat" || "$v_root_password" == "" ]]; do
-    v_root_password=$(dialog --passwordbox "${password_invalid_message}Please enter the root account password (can't be empty):" 30 100 3>&1 1>&2 2>&3)
+    v_root_password=$(dialog --passwordbox "${password_invalid_message}Please enter a new root account password (can't be empty):" 30 100 3>&1 1>&2 2>&3)
     password_repeat=$(dialog --passwordbox "Please repeat the password:" 30 100 3>&1 1>&2 2>&3)
 
     password_invalid_message="Passphrase empty, or not matching! "
@@ -494,21 +484,8 @@ for kver in $(find /lib/modules/* -maxdepth 0 -type d | grep -v "$(uname -r)" | 
   apt purge --yes "linux-image-$kver"
 done
 
-echo "======= installing zfs on rescue system =========="
+echo "======= display zfs version =========="
 
-  echo "zfs-dkms zfs-dkms/note-incompatible-licenses note true" | debconf-set-selections  
-#  echo "y" | zfs
-# linux-headers-generic linux-image-generic
-  apt install --yes software-properties-common dpkg-dev dkms
-  rm -f "$(which zfs)"
-  rm -f "$(which zpool)"
-  echo -e "deb http://deb.debian.org/debian/ testing main contrib non-free\ndeb http://deb.debian.org/debian/ testing main contrib non-free\n" >/etc/apt/sources.list.d/bookworm-testing.list
-  echo -e "Package: src:zfs-linux\nPin: release n=testing\nPin-Priority: 990\n" > /etc/apt/preferences.d/90_zfs
-  apt update  
-  apt install -t testing --yes zfs-dkms zfsutils-linux
-  rm /etc/apt/sources.list.d/bookworm-testing.list
-  rm /etc/apt/preferences.d/90_zfs
-  apt update
   export PATH=$PATH:/usr/sbin
   zfs --version
 
@@ -554,6 +531,7 @@ echo "======= create zfs pools and datasets =========="
 # shellcheck disable=SC2086
 zpool create \
   $v_bpool_tweaks -O canmount=off -O devices=off \
+  -o compatibility=grub2 \
   -o cachefile=/etc/zpool.cache \
   -O mountpoint=/boot -R $c_zfs_mount_dir -f \
   $v_bpool_name $pools_mirror_option "${bpool_disks_partitions[@]}"
@@ -659,10 +637,6 @@ chroot_execute "apt update"
 echo "======= setting locale, console and language =========="
 chroot_execute "apt install --yes -qq locales debconf-i18n apt-utils"
 sed -i 's/# en_US.UTF-8/en_US.UTF-8/' "$c_zfs_mount_dir/etc/locale.gen"
-sed -i 's/# fr_FR.UTF-8/fr_FR.UTF-8/' "$c_zfs_mount_dir/etc/locale.gen"
-sed -i 's/# fr_FR.UTF-8/fr_FR.UTF-8/' "$c_zfs_mount_dir/etc/locale.gen"
-sed -i 's/# de_AT.UTF-8/de_AT.UTF-8/' "$c_zfs_mount_dir/etc/locale.gen"
-sed -i 's/# de_DE.UTF-8/de_DE.UTF-8/' "$c_zfs_mount_dir/etc/locale.gen"
 
 chroot_execute 'cat <<CONF | debconf-set-selections
 locales locales/default_environment_locale      select  en_US.UTF-8
@@ -712,7 +686,7 @@ echo "======= installing latest kernel============="
 chroot_execute "apt install --yes linux-image${v_kernel_variant}-amd64 linux-headers${v_kernel_variant}-amd64 dpkg-dev"
 
 echo "======= installing aux packages =========="
-chroot_execute "apt install --yes man wget curl software-properties-common nano htop gnupg"
+chroot_execute "apt install --yes man wget curl software-properties-common gnupg"
 
 echo "======= installing zfs packages =========="
 chroot_execute 'echo "zfs-dkms zfs-dkms/note-incompatible-licenses note true" | debconf-set-selections'
@@ -809,34 +783,7 @@ echo "========running packages upgrade and autoremove==========="
 chroot_execute "apt upgrade --yes"
 chroot_execute "apt purge cryptsetup* --yes"
 
-echo "===========add static route to initramfs via hook to add default routes for Hetzner due to Debian/Ubuntu initramfs DHCP bug ========="
-mkdir -p "$c_zfs_mount_dir/usr/share/initramfs-tools/scripts/init-premount"
-cat > "$c_zfs_mount_dir/usr/share/initramfs-tools/scripts/init-premount/static-route" <<'CONF'
-#!/bin/sh
-PREREQ=""
-prereqs()
-{
-    echo "$PREREQ"
-}
-
-case $1 in
-prereqs)
-    prereqs
-    exit 0
-    ;;
-esac
-
-. /scripts/functions
-# Begin real processing below this line
-
-configure_networking
-
-ip route add 172.31.1.1/255.255.255.255 dev eth0
-ip route add default via 172.31.1.1 dev eth0
-CONF
-
-chmod 755 "$c_zfs_mount_dir/usr/share/initramfs-tools/scripts/init-premount/static-route"
-
+echo "===========change network interfaces config file access mode ========="
 chmod 755 "$c_zfs_mount_dir/etc/network/interfaces"
 
 echo "======= update initramfs =========="

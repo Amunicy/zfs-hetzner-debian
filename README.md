@@ -1,65 +1,39 @@
-# zfs-hetzner-vm
+# zfs-hetzner-debian
 
-[![shellcheck](https://github.com/terem42/zfs-hetzner-vm/actions/workflows/shellcheck.yml/badge.svg)](https://github.com/terem42/zfs-hetzner-vm/actions/workflows/shellcheck.yml)
+[![shellcheck](https://github.com/Amunicy/zfs-hetzner-debian/actions/workflows/shellcheck.yml/badge.svg)](https://github.com/Amunicy/zfs-hetzner-debian/actions/workflows/shellcheck.yml)
 
-Scripts to install Debian 10, 11, 12 or Ubuntu 18 LTS, 20 LTS, 22 LTS with ZFS root on Hetzner root servers (virtual and dedicated).<br/>
+A script to install Debian 12 with ZFS root filesystem on a Hetzner dedicated server.<br/>
 __WARNING:__ all data on the disk will be destroyed.
 
 ## How to use:
 
-* Login into Hetzner cloud server console.
-* Choose "rescue" menu.
-* Click "enable rescue and power cycle",  add SSH key to the rescue console, set it OS to linux64, then press mount rescue and power cycle" button.
-* connect via SSH to rescue console, and run the script from this repo.
-
-Debian 10 minimal setup with SSH server
-
+* Log in to Hetzner Robot self-service portal.
+* Select the desired dedicated server.
+* Choose "Rescue" menu.
+* Select an SSH key.
+* Activate the rescue system.
+* Reboot the server into a rescue system from either "Reset" menu or via
+the ssh.
+* Connect to the server via the ssh and run rescue system's command `zfs` to
+compile and install latest zfs
+* Download and run the script:
 ````bash
-wget -qO- https://raw.githubusercontent.com/terem42/zfs-hetzner-vm/master/hetzner-debian10-zfs-setup.sh | bash -
+wget -qO- https://raw.githubusercontent.com/Amunicy/zfs-hetzner-debian/master/hetzner-debian12-zfs-setup.sh | bash -
 ````
 
-Debian 11 minimal setup with SSH server
+Upon successful run, the script will reboot the system. You will be able to log in to it using the same SSH key you have
+used to active the rescue system.
 
-````bash
-wget -qO- https://raw.githubusercontent.com/terem42/zfs-hetzner-vm/master/hetzner-debian11-zfs-setup.sh | bash -
-````
+***Please note that the drives you intend to format can not be in use!  
+You can execute `mdadm --stop --scan` before running the script to halt default software raid operations.***
+## Recommendations
+To cope with network failures it's highly recommended to run the commands above inside screen console.  
+Type `man screen` for more info.
 
-Debian 12 minimal setup with SSH server
-
-````bash
-wget -qO- https://raw.githubusercontent.com/terem42/zfs-hetzner-vm/master/hetzner-debian12-zfs-setup.sh | bash -
-````
-
-Ubuntu 18.04 LTS minimal setup with SSH server
-
-````bash
-wget -qO- https://raw.githubusercontent.com/terem42/zfs-hetzner-vm/master/hetzner-ubuntu18-zfs-setup.sh | bash -
-````
-
-Ubuntu 20 LTS minimal setup with SSH server
-
-````bash
-wget -qO- https://raw.githubusercontent.com/terem42/zfs-hetzner-vm/master/hetzner-ubuntu20-zfs-setup.sh | bash -
-````
-
-Ubuntu 22 LTS minimal setup with SSH server
-
-````bash
-wget -qO- https://raw.githubusercontent.com/terem42/zfs-hetzner-vm/master/hetzner-ubuntu22-zfs-setup.sh | bash -
-````
-
-Answer script questions about desired hostname and ZFS ARC cache size.
-
-To cope with network failures its higly recommended to run the commands above inside screen console, type `man screen` for more info.
-Example of screen utility usage:
+**Example of screen utility usage:**
 
 ````bash
 export LC_ALL=en_US.UTF-8 && screen -S zfs
 ````
 To detach from screen console, hit Ctrl-d then a
 To reattach, type `screen -r zfs`
-
-Upon succesfull run, the script will reboot system, and you will be able to login into it, using the same SSH key you have used within rescue console
-
-Please note that the drives you intend to format can not be in use,
-you can execute `mdadm --stop --scan` before running the script to halt default software raid operations.
