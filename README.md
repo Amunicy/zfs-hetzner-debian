@@ -26,6 +26,7 @@ used to active the rescue system.
 
 ***Please note that the drives you intend to format can not be in use!  
 You can execute `mdadm --stop --scan` before running the script to halt default software raid operations.***
+
 ## Recommendations
 To cope with network failures it's highly recommended to run the commands above inside screen console.  
 Type `man screen` for more info.
